@@ -1,5 +1,7 @@
 const puppeteer = require('puppeteer');
-const url = 'https://edhrec.com/commanders/'
+const commander_url = 'https://edhrec.com/commanders/';
+const themes_url = 'https://edhrec.com/themes/';
+const tribes_url = 'https://edhrec.com/tribes/';
 
 async function scrape_commander(commander) {
     let commander_data = {}
@@ -8,7 +10,7 @@ async function scrape_commander(commander) {
     const browser = await puppeteer.launch({});
     const page = await browser.newPage();
     const card = commander.toLowerCase().replace(/[`~!@#$%^&*()_|+=?;:'",.<>\{\}\[\]\\\/]/gi, '').replaceAll(' ', '-');
-    await page.goto(url + card);
+    await page.goto(commander_url + card);
 
     let rec_scrape_theme = [];
     const theme_list = await page.$('div.NavigationPanel_theme__3k48W');
@@ -53,7 +55,80 @@ async function scrape_commander(commander) {
 }
 
 async function scrape_themes() {
+    let theme_data = []
 
+    const browser = await puppeteer.launch({});
+    const page = await browser.newPage();
+    await page.goto(themes_url);
+
+    const theme_divs = await page.$$('div.CardView_card__2vJOP');
+    for (let theme_obj of theme_divs) {
+        let theme_name = await theme_obj.$eval('div.Card_name__1MYwa', el => el.innerHTML);
+        let theme_count = await theme_obj.$eval('div.Card_label__2D5PR', el => el.innerHTML.split(" ")[0]);
+        theme_data.push(
+            {
+                theme: theme_name,
+                count: parseInt(theme_count)
+            }
+        );
+    }
+    console.log(JSON.stringify(theme_data));
+    await browser.close();
+}
+
+async function scrape_theme(theme, type) {
+    let theme_data = {};
+    theme_data.theme = theme;
+    let modded_theme = '';
+    if (theme === '+1/+1 Counters') {
+        modded_theme = 'p1-p1-counters';
+    }
+    else if (theme === '-1/-1 Counters') {
+        modded_theme = 'm1-m1-counters';
+    }
+    else {
+        modded_theme = theme.toLowerCase().replaceAll(" ", "-");
+    }
+    const browser = await puppeteer.launch({});
+    const page = await browser.newPage();
+    let data_url = '';
+    if (type === 'theme') {
+        data_url = themes_url;
+    }
+    else if (type === 'tribe') {
+        data_url = tribes_url;
+    }
+    await page.goto(data_url + modded_theme);
+
+
+    const categories = await page.$$('div.CardView_cardlist__1CcNe');
+    let rec_scrape_card = [];
+    for (let cat of categories) {
+        let category_scrape = []
+        let category_name = await cat.$eval('h3', el => el.innerText.match(/([A-Z])\w+/g).join(" "));
+        let cards = await cat.$$('div.CardView_card__2vJOP');
+        for (let card of cards) {
+            let card_name = await card.$eval('div.Card_name__1MYwa', el => el.innerHTML);
+            let card_label = (await card.$eval('div.Card_label__2D5PR', el => el.innerHTML)).split('\n');
+            let card_count = parseInt(card_label[0].match(/\d+/g)[0]);
+            category_scrape.push(
+                {
+                    name: card_name,
+                    deck_count: card_count
+                }
+            );
+        }
+        rec_scrape_card.push(
+            {
+                category: category_name,
+                cards: category_scrape
+            }
+        );
+    }
+    theme_data.categories = rec_scrape_card;
+    console.log(JSON.stringify(theme_data));
+    await browser.close();
 }
 
 //scrape_commander('Nath of the Gilt-Leaf');
+scrape_theme('Dragons', 'tribe');
