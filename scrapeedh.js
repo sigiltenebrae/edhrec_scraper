@@ -50,8 +50,8 @@ async function scrape_commander(commander) {
         );
     }
     commander_data.categories = rec_scrape_card;
-    //console.log(JSON.stringify(commander_data));
     await browser.close();
+    return commander_data;
 }
 
 async function scrape_themes() {
@@ -60,6 +60,8 @@ async function scrape_themes() {
     const browser = await puppeteer.launch({});
     const page = await browser.newPage();
     await page.goto(themes_url);
+    await page.waitForSelector('span.CardView_loadMore__3786B');
+    await page.click('span.CardView_loadMore__3786B.button');
 
     const theme_divs = await page.$$('div.CardView_card__2vJOP');
     for (let theme_obj of theme_divs) {
@@ -72,8 +74,26 @@ async function scrape_themes() {
             }
         );
     }
-    console.log(JSON.stringify(theme_data));
     await browser.close();
+    return theme_data;
+}
+
+async function scrape_themes_as_list() {
+    let theme_data = []
+
+    const browser = await puppeteer.launch({});
+    const page = await browser.newPage();
+    await page.goto(themes_url);
+    await page.waitForSelector('.CardView_loadMore__3786B button');
+    await page.click('.CardView_loadMore__3786B button');
+
+    const theme_divs = await page.$$('div.CardView_card__2vJOP');
+    for (let theme_obj of theme_divs) {
+        let theme_name = await theme_obj.$eval('div.Card_name__1MYwa', el => el.innerHTML);
+        theme_data.push(theme_name);
+    }
+    await browser.close();
+    return theme_data;
 }
 
 async function scrape_theme(theme, type) {
@@ -126,9 +146,17 @@ async function scrape_theme(theme, type) {
         );
     }
     theme_data.categories = rec_scrape_card;
-    console.log(JSON.stringify(theme_data));
+
     await browser.close();
+    return theme_data;
 }
 
 //scrape_commander('Nath of the Gilt-Leaf');
-scrape_theme('Dragons', 'tribe');
+
+
+module.exports = {
+    scrape_commander,
+    scrape_themes,
+    scrape_themes_as_list,
+    scrape_theme
+}
