@@ -8,8 +8,10 @@ async function scrape_commander(commander) {
     commander_data.commander = commander;
 
     const browser = await puppeteer.launch({});
-    const page = await browser.newPage();
+    const context = await browser.createIncognitoBrowserContext();
+    const page = await context.newPage();
     const card = commander.toLowerCase().replace(/[`~!@#$%^&*()_|+=?;:'",.<>\{\}\[\]\\\/]/gi, '').replaceAll(' ', '-');
+    console.log(commander_url + card);
     await page.goto(commander_url + card);
 
     let rec_scrape_theme = [];
@@ -50,7 +52,7 @@ async function scrape_commander(commander) {
         );
     }
     commander_data.categories = rec_scrape_card;
-    await browser.close();
+    await context.close();
     return commander_data;
 }
 
@@ -62,7 +64,7 @@ async function scrape_themes() {
     await page.goto(themes_url);
     await page.waitForSelector('span.CardView_loadMore__3786B');
     await page.click('span.CardView_loadMore__3786B.button');
-
+    await sleep(2000);
     const theme_divs = await page.$$('div.CardView_card__2vJOP');
     for (let theme_obj of theme_divs) {
         let theme_name = await theme_obj.$eval('div.Card_name__1MYwa', el => el.innerHTML);
@@ -86,7 +88,31 @@ async function scrape_themes_as_list() {
     await page.goto(themes_url);
     await page.waitForSelector('.CardView_loadMore__3786B button');
     await page.click('.CardView_loadMore__3786B button');
+    await sleep(2000);
+    const theme_divs = await page.$$('div.CardView_card__2vJOP');
+    for (let theme_obj of theme_divs) {
+        let theme_name = await theme_obj.$eval('div.Card_name__1MYwa', el => el.innerHTML);
+        theme_data.push(theme_name);
+    }
+    await browser.close();
+    return theme_data;
+}
 
+function sleep(ms) {
+    return new Promise((resolve) => {
+        setTimeout(resolve, ms);
+    });
+}
+
+async function scrape_tribes_as_list() {
+    let theme_data = []
+
+    const browser = await puppeteer.launch({});
+    const page = await browser.newPage();
+    await page.goto(tribes_url);
+    await page.waitForSelector('.CardView_loadMore__3786B button');
+    await page.click('.CardView_loadMore__3786B button');
+    await sleep(2000);
     const theme_divs = await page.$$('div.CardView_card__2vJOP');
     for (let theme_obj of theme_divs) {
         let theme_name = await theme_obj.$eval('div.Card_name__1MYwa', el => el.innerHTML);
@@ -158,5 +184,6 @@ module.exports = {
     scrape_commander,
     scrape_themes,
     scrape_themes_as_list,
+    scrape_tribes_as_list,
     scrape_theme
 }
