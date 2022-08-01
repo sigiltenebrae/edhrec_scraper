@@ -48,9 +48,14 @@ async function scrape_commander(commander) {
         const theme_list = await page.$('div.NavigationPanel_theme__3k48W');
         const themes = await theme_list.$$('option');
         for (let theme of themes) {
-            const temp_theme = await theme.evaluate(el => el.innerText.match(/([A-Z])\w*/g));
+            const temp_theme = await theme.evaluate(el => el.innerText);
             if (temp_theme) {
-                rec_scrape_theme.push(temp_theme.join(" "));
+                let name_list = temp_theme.split(" ");
+                for (let i = 0; i < 3; i++) {
+                    name_list.splice(name_list.length - 1, 1);
+                }
+                console.log(name_list)
+                rec_scrape_theme.push(name_list.join(" "));
             }
         }
         commander_data.themes = rec_scrape_theme;
