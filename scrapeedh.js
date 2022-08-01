@@ -6,13 +6,13 @@ const top_week_url = "https://edhrec.com/commanders/week";
 const top_year_url = "https://edhrec.com/commanders/year";
 
 async function scrape_top(type) {
-    try {
-        top_cards = [];
-        let cur_url = type === 'week' ? top_week_url : top_year_url;
+    let top_cards = [];
+    let cur_url = type === 'week' ? top_week_url : top_year_url;
 
-        const browser = await puppeteer.launch({});
-        const context = await browser.createIncognitoBrowserContext();
-        const page = await context.newPage();
+    const browser = await puppeteer.launch({});
+    const context = await browser.createIncognitoBrowserContext();
+    const page = await context.newPage();
+    try {
         await page.goto(cur_url);
 
         let cards = await page.$$('div.CardView_card__2vJOP');
@@ -20,24 +20,28 @@ async function scrape_top(type) {
             let card_name = await card.$eval('div.Card_name__1MYwa', el => el.innerHTML);
             top_cards.push(card_name);
         }
-        return top_cards;
+
     }
     catch (e) {
         if (e instanceof puppeteer.errors.TimeoutError) {
-            return {themes: []}
+            top_cards = [];
         }
     }
+    await context.close();
+    console.log(top_cards);
+    return top_cards;
 }
 
 async function scrape_commander(commander) {
-    try {
-        let commander_data = {}
-        commander_data.commander = commander;
 
-        const browser = await puppeteer.launch({});
-        const context = await browser.createIncognitoBrowserContext();
-        const page = await context.newPage();
-        const card = commander.toLowerCase().replace(/[`~!@#$%^&*()_|+=?;:'",.<>\{\}\[\]\\\/]/gi, '').replaceAll(' ', '-');
+    let commander_data = {}
+    commander_data.commander = commander;
+
+    const browser = await puppeteer.launch({});
+    const context = await browser.createIncognitoBrowserContext();
+    const page = await context.newPage();
+    const card = commander.toLowerCase().replace(/[`~!@#$%^&*()_|+=?;:'",.<>\{\}\[\]\\\/]/gi, '').replaceAll(' ', '-');
+    try {
         await page.goto(commander_url + card);
 
         let rec_scrape_theme = [];
@@ -78,15 +82,15 @@ async function scrape_commander(commander) {
             );
         }
         commander_data.categories = rec_scrape_card;
-        await context.close();
-        return commander_data;
+
     }
     catch (e) {
         if (e instanceof puppeteer.errors.TimeoutError) {
-            return {themes: []}
+            commander_data = {themes: []}
         }
     }
-
+    await context.close();
+    return commander_data;
 }
 
 async function scrape_themes() {
