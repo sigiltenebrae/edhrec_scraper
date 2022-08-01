@@ -21,6 +21,13 @@ app.get('/', (request, response) => {
     response.json({ info: 'Edh Web-Scraper API' });
 });
 
+app.get('/top/:type', function(req, res) {
+    let cur_type = req.params.type;
+    scrape.scrape_top(cur_type).then( scrape => {
+       res.json(scrape);
+    });
+});
+
 app.get('/themes', function(req, res) {
     scrape.scrape_themes().then( scrape => {
         res.json(scrape);
@@ -49,7 +56,6 @@ app.post('/commander', function(req, res) {
             });
         }
         catch (err) {
-            console.log(err);
             res.status(200).json({themes: []});
         }
 

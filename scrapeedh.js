@@ -2,58 +2,91 @@ const puppeteer = require('puppeteer');
 const commander_url = 'https://edhrec.com/commanders/';
 const themes_url = 'https://edhrec.com/themes/';
 const tribes_url = 'https://edhrec.com/tribes/';
+const top_week_url = "https://edhrec.com/commanders/week";
+const top_year_url = "https://edhrec.com/commanders/year";
 
-async function scrape_commander(commander) {
-    let commander_data = {}
-    commander_data.commander = commander;
+async function scrape_top(type) {
+    try {
+        top_cards = [];
+        let cur_url = type === 'week' ? top_week_url : top_year_url;
 
-    const browser = await puppeteer.launch({});
-    const context = await browser.createIncognitoBrowserContext();
-    const page = await context.newPage();
-    const card = commander.toLowerCase().replace(/[`~!@#$%^&*()_|+=?;:'",.<>\{\}\[\]\\\/]/gi, '').replaceAll(' ', '-');
-    console.log(commander_url + card);
-    await page.goto(commander_url + card);
+        const browser = await puppeteer.launch({});
+        const context = await browser.createIncognitoBrowserContext();
+        const page = await context.newPage();
+        await page.goto(cur_url);
 
-    let rec_scrape_theme = [];
-    const theme_list = await page.$('div.NavigationPanel_theme__3k48W');
-    const themes = await theme_list.$$('option');
-    for (let theme of themes) {
-        const temp_theme = await theme.evaluate(el => el.innerText.match(/([A-Z])\w+/g));
-        if (temp_theme) {
-            rec_scrape_theme.push(temp_theme.join(" "));
-        }
-    }
-    commander_data.themes = rec_scrape_theme;
-
-    const categories = await page.$$('div.CardView_cardlist__1CcNe');
-    let rec_scrape_card = [];
-    for (let cat of categories) {
-        let category_scrape = []
-        let category_name = await cat.$eval('h3', el => el.innerText.match(/([A-Z])\w+/g).join(" "));
-        let cards = await cat.$$('div.CardView_card__2vJOP');
+        let cards = await page.$$('div.CardView_card__2vJOP');
         for (let card of cards) {
             let card_name = await card.$eval('div.Card_name__1MYwa', el => el.innerHTML);
-            let card_label = (await card.$eval('div.Card_label__2D5PR', el => el.innerHTML)).split('\n');
-            let percent = parseInt(card_label[0].match(/\d+/g)[0]);
-            let syn = parseInt(card_label[1]);
-            category_scrape.push(
+            top_cards.push(card_name);
+        }
+        return top_cards;
+    }
+    catch (e) {
+        if (e instanceof puppeteer.errors.TimeoutError) {
+            return {themes: []}
+        }
+    }
+}
+
+async function scrape_commander(commander) {
+    try {
+        let commander_data = {}
+        commander_data.commander = commander;
+
+        const browser = await puppeteer.launch({});
+        const context = await browser.createIncognitoBrowserContext();
+        const page = await context.newPage();
+        const card = commander.toLowerCase().replace(/[`~!@#$%^&*()_|+=?;:'",.<>\{\}\[\]\\\/]/gi, '').replaceAll(' ', '-');
+        await page.goto(commander_url + card);
+
+        let rec_scrape_theme = [];
+        const theme_list = await page.$('div.NavigationPanel_theme__3k48W');
+        const themes = await theme_list.$$('option');
+        for (let theme of themes) {
+            const temp_theme = await theme.evaluate(el => el.innerText.match(/([A-Z])\w*/g));
+            if (temp_theme) {
+                rec_scrape_theme.push(temp_theme.join(" "));
+            }
+        }
+        commander_data.themes = rec_scrape_theme;
+
+        const categories = await page.$$('div.CardView_cardlist__1CcNe');
+        let rec_scrape_card = [];
+        for (let cat of categories) {
+            let category_scrape = []
+            let category_name = await cat.$eval('h3', el => el.innerText.match(/([A-Z])\w+/g).join(" "));
+            let cards = await cat.$$('div.CardView_card__2vJOP');
+            for (let card of cards) {
+                let card_name = await card.$eval('div.Card_name__1MYwa', el => el.innerHTML);
+                let card_label = (await card.$eval('div.Card_label__2D5PR', el => el.innerHTML)).split('\n');
+                let percent = parseInt(card_label[0].match(/\d+/g)[0]);
+                let syn = parseInt(card_label[1]);
+                category_scrape.push(
+                    {
+                        name: card_name,
+                        usage_percent: percent,
+                        synergy: syn
+                    }
+                );
+            }
+            rec_scrape_card.push(
                 {
-                    name: card_name,
-                    usage_percent: percent,
-                    synergy: syn
+                    category: category_name,
+                    cards: category_scrape
                 }
             );
         }
-        rec_scrape_card.push(
-            {
-                category: category_name,
-                cards: category_scrape
-            }
-        );
+        commander_data.categories = rec_scrape_card;
+        await context.close();
+        return commander_data;
     }
-    commander_data.categories = rec_scrape_card;
-    await context.close();
-    return commander_data;
+    catch (e) {
+        if (e instanceof puppeteer.errors.TimeoutError) {
+            return {themes: []}
+        }
+    }
+
 }
 
 async function scrape_themes() {
@@ -181,6 +214,7 @@ async function scrape_theme(theme, type) {
 
 
 module.exports = {
+    scrape_top,
     scrape_commander,
     scrape_themes,
     scrape_themes_as_list,
